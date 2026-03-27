@@ -1,7 +1,9 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { anyApi } from "convex/server";
+import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
@@ -287,8 +289,23 @@ function FindingCard({ finding }: { finding: Finding }) {
 // ---------------------------------------------------------------------------
 
 export function ScanReport({ scanId }: { scanId: string }) {
+  const { userId: clerkId } = useAuth();
   const scan = useQuery(anyApi.scans.getScan, { scanId }) as Scan | null | undefined;
   const findings = useQuery(anyApi.scans.getFindings, { scanId }) as Finding[] | undefined;
+  const convexUser = useQuery(
+    anyApi.users.getByClerkId,
+    clerkId ? { clerkId } : "skip"
+  ) as { _id: string } | null | undefined;
+  const linkScanToUser = useMutation(anyApi.scans.linkScanToUser);
+
+  // When authenticated user views a scan, link it to their account if not yet linked.
+  useEffect(() => {
+    if (scan && convexUser) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      linkScanToUser({ scanId: scan._id as any, userId: convexUser._id as any }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scan?._id, convexUser?._id]);
 
   if (scan === undefined || findings === undefined) {
     return (

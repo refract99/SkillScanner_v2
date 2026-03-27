@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { anyApi } from "convex/server";
+import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -17,6 +18,7 @@ import {
   ClipboardCopy,
   ArrowRight,
   ExternalLink,
+  Lock,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -343,10 +345,12 @@ function ScanResults({
   scan,
   findings,
   scanId,
+  isSignedIn,
 }: {
   scan: Scan;
   findings: Finding[];
   scanId: string;
+  isSignedIn: boolean;
 }) {
   const sortedFindings = [...findings].sort((a, b) => {
     const order: Severity[] = ["critical", "high", "medium", "low"];
@@ -397,23 +401,55 @@ function ScanResults({
         </div>
       )}
 
-      {/* View Full Report */}
-      <Link
-        href={`/scan/${scanId}`}
-        className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-      >
-        {hasMore ? (
-          <>
-            View Full Report ({sortedFindings.length} findings)
+      {/* Full report CTA — gate behind auth */}
+      {isSignedIn ? (
+        <Link
+          href={`/scan/${scanId}`}
+          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          {hasMore ? (
+            <>
+              View Full Report ({sortedFindings.length} findings)
+              <ArrowRight className="size-4" />
+            </>
+          ) : (
+            <>
+              View Full Report
+              <ExternalLink className="size-4" />
+            </>
+          )}
+        </Link>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-5">
+          <div className="flex items-center gap-2">
+            <Lock className="size-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-foreground">
+              Sign in to get your full report
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {hasMore
+              ? `See all ${sortedFindings.length} findings, detailed remediation steps, and save to your scan history.`
+              : "See detailed remediation steps and save this scan to your history."}
+          </p>
+          <Link
+            href={`/sign-in?redirect_url=/scan/${scanId}`}
+            className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Sign in for free
             <ArrowRight className="size-4" />
-          </>
-        ) : (
-          <>
-            View Full Report
-            <ExternalLink className="size-4" />
-          </>
-        )}
-      </Link>
+          </Link>
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{" "}
+            <Link
+              href={`/sign-in?redirect_url=/scan/${scanId}`}
+              className="text-primary hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -423,6 +459,7 @@ function ScanResults({
 // ---------------------------------------------------------------------------
 
 function ScanDisplay({ scanId }: { scanId: string }) {
+  const { isSignedIn } = useAuth();
   const scan = useQuery(anyApi.scans.getScan, { scanId }) as Scan | null | undefined;
   const findings = useQuery(anyApi.scans.getFindings, { scanId }) as Finding[] | undefined;
 
@@ -457,7 +494,12 @@ function ScanDisplay({ scanId }: { scanId: string }) {
 
   if (scan.status === "done") {
     return (
-      <ScanResults scan={scan} findings={findings ?? []} scanId={scanId} />
+      <ScanResults
+        scan={scan}
+        findings={findings ?? []}
+        scanId={scanId}
+        isSignedIn={!!isSignedIn}
+      />
     );
   }
 

@@ -281,6 +281,23 @@ export const runScanAction = internalAction({
   },
 });
 
+/**
+ * Link an anonymous scan to an authenticated user.
+ * Called when an authenticated user views a scan for the first time.
+ * No-ops if the scan is already linked.
+ */
+export const linkScanToUser = mutation({
+  args: {
+    scanId: v.id("scans"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { scanId, userId }) => {
+    const scan = await ctx.db.get(scanId);
+    if (!scan || scan.userId != null) return;
+    await ctx.db.patch(scanId, { userId });
+  },
+});
+
 // Internal query used by the action to load the scan record.
 export const getScanInternal = internalQuery({
   args: { scanId: v.id("scans") },
