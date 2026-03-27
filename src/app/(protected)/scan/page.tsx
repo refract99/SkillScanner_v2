@@ -1,11 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { ScannerForm } from "@/components/scanner/scanner-form";
 
-export default async function ScanPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-
+// Auth is optional — anonymous scanning is supported.
+// The scanner form handles auth state internally for rate limits and full reports.
+export default function ScanPage() {
   return (
     <main className="min-h-screen px-4 py-16">
       <div className="mx-auto max-w-2xl">

@@ -33,7 +33,7 @@ export function Hero() {
 
       <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
         <Link
-          href="/sign-up"
+          href="/scan"
           className="inline-flex min-w-[160px] items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Scan a Skill — Free

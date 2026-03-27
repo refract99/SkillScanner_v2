@@ -1,6 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/scan(.*)"]);
+// /scan (the form) is public — anonymous scanning is supported.
+// /scan/:scanId (full report) requires auth to view.
+// /dashboard requires auth.
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/scan/.+"]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
