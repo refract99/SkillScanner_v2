@@ -1,4 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 // @clerk/nextjs v7 imports AsyncLocalStorage from node:async_hooks, which is
 // not available in the Edge runtime. Running middleware in Node.js runtime
@@ -10,11 +12,20 @@ export const runtime = "nodejs";
 // /dashboard requires auth.
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/scan/.+"]);
 
-export default clerkMiddleware(async (auth, req) => {
+const clerkHandler = clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
 });
+
+export default async function middleware(req: NextRequest) {
+  try {
+    return await clerkHandler(req, { waitUntil: () => {} } as never);
+  } catch (err) {
+    console.error("[middleware] Clerk error:", err);
+    return NextResponse.next();
+  }
+}
 
 export const config = {
   matcher: [
