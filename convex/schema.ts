@@ -43,6 +43,14 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_status", ["status"]),
 
+  rateLimits: defineTable({
+    // "ip:{ip}" for anonymous users, "user:{userId}" for authenticated
+    key: v.string(),
+    // Math.floor(Date.now() / (1000 * 60 * 60)) — resets each hour
+    hourBucket: v.number(),
+    count: v.number(),
+  }).index("by_key_bucket", ["key", "hourBucket"]),
+
   findings: defineTable({
     scanId: v.id("scans"),
     tier: v.union(v.literal(1), v.literal(2), v.literal(3)),

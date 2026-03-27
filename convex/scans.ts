@@ -21,6 +21,7 @@ import {
   mutation,
   query,
 } from "./_generated/server";
+import type { GenericMutationCtx, GenericDataModel } from "convex/server";
 import { internal } from "./_generated/api";
 import { parseGitHubUrl, fetchRepoFiles } from "./scanner/github";
 import { detectPlatform } from "./scanner/platform";
@@ -29,25 +30,80 @@ import { runTier2 } from "./scanner/tier2";
 import { calculateScore } from "./scanner/scoring";
 
 // ---------------------------------------------------------------------------
+// Rate limiting
+// ---------------------------------------------------------------------------
+
+const ANON_LIMIT = 5;
+const USER_LIMIT = 20;
+
+/**
+ * Check and increment the rate limit for the given key.
+ * Returns the remaining scans allowed after this one.
+ * Throws with message starting "RATE_LIMIT_EXCEEDED" if over limit.
+ */
+async function enforceRateLimit(
+  ctx: GenericMutationCtx<GenericDataModel>,
+  key: string,
+  limit: number
+): Promise<number> {
+  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60));
+  const existing = await ctx.db
+    .query("rateLimits")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex("by_key_bucket", (q: any) =>
+      q.eq("key", key).eq("hourBucket", hourBucket)
+    )
+    .unique();
+
+  const count = existing?.count ?? 0;
+  if (count >= limit) {
+    throw new Error(`RATE_LIMIT_EXCEEDED:${limit}:${key.split(":")[0]}`);
+  }
+
+  if (existing) {
+    await ctx.db.patch(existing._id, { count: count + 1 });
+  } else {
+    await ctx.db.insert("rateLimits", { key, hourBucket, count: 1 });
+  }
+
+  return limit - (count + 1);
+}
+
+// ---------------------------------------------------------------------------
 // Mutations — called from the client
 // ---------------------------------------------------------------------------
 
 /**
  * Create a new scan and schedule the scan action.
  * Validates the GitHub URL before writing anything.
+ * Rate limits: 5/hr per IP for anonymous, 20/hr per user for authenticated.
  */
 export const createScan = mutation({
   args: {
     repoUrl: v.string(),
     // Optional: pass the Convex user ID if the caller is authenticated
     userId: v.optional(v.id("users")),
+    // IP address for anonymous rate limiting — omit when userId is present
+    ip: v.optional(v.string()),
   },
-  handler: async (ctx, { repoUrl, userId }) => {
+  handler: async (ctx, { repoUrl, userId, ip }) => {
     const parsed = parseGitHubUrl(repoUrl);
     if (!parsed) {
       throw new Error(
         "Invalid GitHub URL. Expected format: https://github.com/owner/repo"
       );
+    }
+
+    // Enforce rate limits
+    let rateLimitRemaining: number | null = null;
+    if (userId) {
+      rateLimitRemaining = await enforceRateLimit(
+        ctx,
+        `user:${userId}`,
+        USER_LIMIT
+      );
+    } else if (ip) {
+      rateLimitRemaining = await enforceRateLimit(ctx, `ip:${ip}`, ANON_LIMIT);
     }
 
     const scanId = await ctx.db.insert("scans", {
@@ -62,7 +118,7 @@ export const createScan = mutation({
     // Fire-and-forget: the action runs asynchronously
     await ctx.scheduler.runAfter(0, internal.scans.runScanAction, { scanId });
 
-    return scanId;
+    return { scanId, rateLimitRemaining };
   },
 });
 
@@ -112,6 +168,34 @@ export const getStats = query({
       .then((fs) => fs.filter((f) => f.severity === "critical").length);
 
     return { totalScanned, criticalFindings };
+  },
+});
+
+/**
+ * Returns the current rate limit status for a given key without incrementing.
+ */
+export const getRateLimitStatus = query({
+  args: {
+    key: v.string(),
+    limit: v.number(),
+  },
+  handler: async (ctx, { key, limit }) => {
+    const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60));
+    const existing = await ctx.db
+      .query("rateLimits")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex("by_key_bucket", (q: any) =>
+        q.eq("key", key).eq("hourBucket", hourBucket)
+      )
+      .unique();
+
+    const count = existing?.count ?? 0;
+    const resetAt = (hourBucket + 1) * 3600;
+    return {
+      remaining: Math.max(0, limit - count),
+      limit,
+      resetAt,
+    };
   },
 });
 

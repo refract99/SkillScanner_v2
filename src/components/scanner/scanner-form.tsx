@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { anyApi } from "convex/server";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -510,9 +510,8 @@ export function ScannerForm() {
   const [url, setUrl] = useState("");
   const [scanId, setScanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-
-  const createScan = useMutation(anyApi.scans.createScan);
 
   const valid = isValidGitHubUrl(url);
   const platformHint = url ? detectPlatformLabel(url) : null;
@@ -529,20 +528,36 @@ export function ScannerForm() {
   const handleScan = useCallback(async () => {
     if (!valid || isStarting) return;
     setError(null);
+    setIsRateLimited(false);
     setIsStarting(true);
     try {
-      const id = await createScan({ repoUrl: url.trim() });
-      setScanId(id as string);
+      const res = await fetch("/api/scan/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoUrl: url.trim() }),
+      });
+      const data = await res.json();
+      if (res.status === 429) {
+        setIsRateLimited(true);
+        setError(data.error ?? "Rate limit reached. Please try again later.");
+        return;
+      }
+      if (!res.ok) {
+        setError(data.error ?? "Failed to start scan.");
+        return;
+      }
+      setScanId(data.scanId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start scan.");
     } finally {
       setIsStarting(false);
     }
-  }, [valid, isStarting, createScan, url]);
+  }, [valid, isStarting, url]);
 
   const handleReset = useCallback(() => {
     setScanId(null);
     setError(null);
+    setIsRateLimited(false);
     setUrl("");
   }, []);
 
@@ -560,6 +575,7 @@ export function ScannerForm() {
                 onChange={(e) => {
                   setUrl(e.target.value);
                   setError(null);
+                  setIsRateLimited(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && valid) handleScan();
@@ -594,13 +610,31 @@ export function ScannerForm() {
                 Enter a valid GitHub URL (e.g. https://github.com/owner/repo)
               </p>
             )}
-            {error && (
+            {error && !isRateLimited && (
               <p className="mt-1.5 text-xs text-destructive flex items-center gap-1">
                 <AlertCircle className="size-3" />
                 {error}
               </p>
             )}
           </div>
+
+          {/* Rate limit banner */}
+          {isRateLimited && (
+            <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center gap-2">
+                <Lock className="size-4 text-primary shrink-0" />
+                <p className="text-sm font-semibold text-foreground">Scan limit reached</p>
+              </div>
+              <p className="text-xs text-muted-foreground">{error}</p>
+              <Link
+                href="/sign-up"
+                className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Sign up for free
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          )}
 
           <Button
             onClick={handleScan}
