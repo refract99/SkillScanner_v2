@@ -12,6 +12,7 @@
  */
 
 import type { Tier1Finding } from "./tier1";
+import type { Tier2Finding } from "./tier2";
 
 export type Verdict = "safe" | "caution" | "risky" | "dangerous";
 
@@ -38,22 +39,41 @@ function verdictFromScore(score: number): Verdict {
   return "dangerous";
 }
 
+// Confidence multipliers for Tier 2 AI findings — scale down uncertain results.
+const CONFIDENCE_MULTIPLIER: Record<string, number> = {
+  high: 1.0,
+  medium: 0.5,
+  low: 0.25,
+};
+
 /**
- * Calculate a risk score from Tier 1 findings.
- * (Tier 2 findings from AI analysis will be merged in later.)
+ * Calculate a risk score from Tier 1 and (optionally) Tier 2 findings.
+ *
+ * Tier 1 findings are deterministic — full deduction applied.
+ * Tier 2 findings are AI-inferred — deduction is scaled by confidence.
  */
-export function calculateScore(tier1Findings: Tier1Finding[]): ScanScore {
-  // Group deductions by category to apply per-category cap
+export function calculateScore(
+  tier1Findings: Tier1Finding[],
+  tier2Findings: Tier2Finding[] = []
+): ScanScore {
+  // Group deductions by category to apply per-category cap.
   const deductionByCategory = new Map<string, number>();
 
   for (const finding of tier1Findings) {
-    const tierDeductions = DEDUCTIONS[1];
-    const deduction = tierDeductions[finding.severity] ?? 0;
+    const deduction = DEDUCTIONS[1][finding.severity] ?? 0;
     const current = deductionByCategory.get(finding.category) ?? 0;
     deductionByCategory.set(finding.category, current + deduction);
   }
 
-  // Apply per-category cap and sum total deductions
+  for (const finding of tier2Findings) {
+    const base = DEDUCTIONS[2][finding.severity] ?? 0;
+    const multiplier = CONFIDENCE_MULTIPLIER[finding.confidence] ?? 0.5;
+    const deduction = base * multiplier;
+    const current = deductionByCategory.get(finding.category) ?? 0;
+    deductionByCategory.set(finding.category, current + deduction);
+  }
+
+  // Apply per-category cap and sum total deductions.
   let totalDeduction = 0;
   for (const [, deduction] of deductionByCategory) {
     totalDeduction += Math.min(deduction, MAX_DEDUCTION_PER_CATEGORY);

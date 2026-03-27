@@ -25,6 +25,7 @@ import { internal } from "./_generated/api";
 import { parseGitHubUrl, fetchRepoFiles } from "./scanner/github";
 import { detectPlatform } from "./scanner/platform";
 import { runTier1 } from "./scanner/tier1";
+import { runTier2 } from "./scanner/tier2";
 import { calculateScore } from "./scanner/scoring";
 
 // ---------------------------------------------------------------------------
@@ -122,6 +123,7 @@ export const updateScanStatus = internalMutation({
     ),
     filesScanned: v.optional(v.number()),
     tier1FindingCount: v.optional(v.number()),
+    tier2FindingCount: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -186,11 +188,13 @@ export const runScanAction = internalAction({
       const scan = await ctx.runQuery(internal.scans.getScanInternal, { scanId });
       if (!scan) throw new Error("Scan record not found");
 
-      // Optional GitHub token from environment for higher rate limits
+      // Optional API keys from environment
       const githubToken = process.env.GITHUB_TOKEN ?? undefined;
+      const anthropicKey = process.env.ANTHROPIC_API_KEY ?? undefined;
+      const openaiKey = process.env.OPENAI_API_KEY ?? undefined;
 
       // 1. Fetch repo files via GitHub API
-      const { files, totalFiles } = await fetchRepoFiles(
+      const { files } = await fetchRepoFiles(
         scan.repoOwner,
         scan.repoName,
         githubToken
@@ -202,11 +206,14 @@ export const runScanAction = internalAction({
       // 3. Run Tier 1 deterministic checks
       const tier1Findings = runTier1(files);
 
-      // 4. Calculate score (Tier 1 only for now; Tier 2 AI analysis is a future task)
-      const { score, verdict } = calculateScore(tier1Findings);
+      // 4. Run Tier 2 AI analysis
+      const tier2Findings = await runTier2(files, anthropicKey, openaiKey);
 
-      // 5. Persist findings
-      const findingsPayload = tier1Findings.map((f) => ({
+      // 5. Calculate combined score
+      const { score, verdict } = calculateScore(tier1Findings, tier2Findings);
+
+      // 6. Persist all findings
+      const tier1Payload = tier1Findings.map((f) => ({
         tier: 1 as const,
         category: f.category,
         severity: f.severity,
@@ -218,12 +225,24 @@ export const runScanAction = internalAction({
         remediation: f.remediation,
       }));
 
+      const tier2Payload = tier2Findings.map((f) => ({
+        tier: 2 as const,
+        category: f.category,
+        severity: f.severity,
+        confidence: f.confidence,
+        file: f.file,
+        line: f.line,
+        evidence: f.evidence,
+        description: f.description,
+        remediation: f.remediation,
+      }));
+
       await ctx.runMutation(internal.scans.insertFindings, {
         scanId,
-        findings: findingsPayload,
+        findings: [...tier1Payload, ...tier2Payload],
       });
 
-      // 6. Mark done
+      // 7. Mark done
       await ctx.runMutation(internal.scans.updateScanStatus, {
         scanId,
         status: "done",
@@ -232,6 +251,7 @@ export const runScanAction = internalAction({
         verdict,
         filesScanned: files.length,
         tier1FindingCount: tier1Findings.length,
+        tier2FindingCount: tier2Findings.length,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
