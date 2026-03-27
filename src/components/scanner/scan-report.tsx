@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Clock,
   File,
+  Share2,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -334,14 +335,25 @@ export function ScanReport({ scanId }: { scanId: string }) {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Back link */}
-      <Link
-        href="/scan"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        New scan
-      </Link>
+      {/* Nav row */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/scan"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          New scan
+        </Link>
+        <Link
+          href={`/report/${scan._id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        >
+          <Share2 className="size-3.5" />
+          Share report
+        </Link>
+      </div>
 
       {/* Repo header */}
       <div className="rounded-xl border border-border bg-card px-6 py-5">

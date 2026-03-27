@@ -288,3 +288,44 @@ export const getScanInternal = internalQuery({
     return ctx.db.get(scanId);
   },
 });
+
+// ---------------------------------------------------------------------------
+// Comparison data — percentile ranking vs other scans of the same platform
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns percentile ranking for a completed scan against other scans of the
+ * same platform.  "Safer than X%" means X% of same-platform scans scored lower.
+ *
+ * Returns null when there aren't enough comparable scans (< 2).
+ */
+export const getComparisonData = query({
+  args: { scanId: v.id("scans") },
+  handler: async (ctx, { scanId }) => {
+    const scan = await ctx.db.get(scanId);
+    if (!scan || scan.status !== "done" || scan.score == null) return null;
+
+    const samePlatform = await ctx.db
+      .query("scans")
+      .withIndex("by_status", (q) => q.eq("status", "done"))
+      .collect()
+      .then((rows) =>
+        rows.filter((s) => s.platform === scan.platform && s.score != null)
+      );
+
+    if (samePlatform.length < 2) return null;
+
+    const lowerCount = samePlatform.filter((s) => s.score! < scan.score!).length;
+    const percentile = Math.round((lowerCount / samePlatform.length) * 100);
+    const averageScore = Math.round(
+      samePlatform.reduce((sum, s) => sum + s.score!, 0) / samePlatform.length
+    );
+
+    return {
+      percentile,
+      totalScans: samePlatform.length,
+      averageScore,
+      platform: scan.platform ?? "unknown",
+    };
+  },
+});
