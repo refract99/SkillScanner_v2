@@ -98,6 +98,23 @@ export const getUserScans = query({
   },
 });
 
+export const getStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const allScans = await ctx.db.query("scans").collect();
+    const doneScans = allScans.filter((s) => s.status === "done");
+    const totalScanned = doneScans.length;
+
+    // Count critical findings across all done scans
+    const criticalFindings = await ctx.db
+      .query("findings")
+      .collect()
+      .then((fs) => fs.filter((f) => f.severity === "critical").length);
+
+    return { totalScanned, criticalFindings };
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Internal mutations — called only from actions
 // ---------------------------------------------------------------------------
