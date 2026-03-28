@@ -1,4 +1,3 @@
-import { api } from "../../../../../convex/_generated/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
@@ -44,12 +43,12 @@ export async function POST(request: NextRequest) {
   let convexUserId: string | undefined;
   if (clerkUserId) {
     try {
-      const user = await convex.query(api.users.getByClerkId, {
+      const user: any = await convex.query("users:getByClerkId" as any, {
         clerkId: clerkUserId,
       });
       convexUserId = user?._id;
     } catch {
-      // User not found in Convex — proceed as anonymous
+      // User not found — proceed as anonymous
     }
   }
 
@@ -58,9 +57,9 @@ export async function POST(request: NextRequest) {
   const resetAt = (hourBucket + 1) * 3600;
 
   try {
-    const result = await convex.mutation(api.scans.createScan, {
+    const result: any = await convex.mutation("scans:createScan" as any, {
       repoUrl,
-      userId: convexUserId as any,
+      userId: convexUserId,
       ip: convexUserId ? undefined : ip,
     });
 
@@ -75,11 +74,11 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-  } catch (err) {
-    console.error("[scan/create] Convex error:", err);
-    const message = err instanceof Error ? err.message : String(err);
+  } catch (err: any) {
+    console.error("[scan/create] Convex error:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+    const message = err?.message || String(err) || "Failed to create scan";
 
-    if (message && message.startsWith("RATE_LIMIT_EXCEEDED")) {
+    if (message.startsWith("RATE_LIMIT_EXCEEDED")) {
       const upgradeMessage = convexUserId
         ? "You've reached your 20 scans/hour limit. Upgrade for unlimited scans."
         : "You've reached the 5 scans/hour limit for anonymous users. Sign up for more scans.";
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
       );
     }
     return NextResponse.json(
-      { error: message || "Failed to create scan" },
+      { error: message },
       { status: 500 }
     );
   }
