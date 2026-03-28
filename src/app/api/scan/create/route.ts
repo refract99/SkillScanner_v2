@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
-import { anyApi } from "convex/server";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
 
@@ -36,32 +35,45 @@ export async function POST(request: NextRequest) {
   } catch {
     // Clerk auth not available — treat as anonymous
   }
+
   const ip = getClientIp(request);
   const convex = new ConvexHttpClient(convexUrl);
 
   // Resolve Convex userId for authenticated users
   let convexUserId: string | undefined;
   if (clerkUserId) {
-    const user = await convex.query(anyApi.users.getByClerkId, {
-      clerkId: clerkUserId,
-    });
-    convexUserId = user?._id;
+    try {
+      const user = await convex.query("users:getByClerkId", {
+        clerkId: clerkUserId,
+      });
+      convexUserId = user?._id;
+    } catch {
+      // User not found in Convex — proceed as anonymous
+    }
   }
 
   const limit = convexUserId ? USER_LIMIT : ANON_LIMIT;
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60));
   const resetAt = (hourBucket + 1) * 3600;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let result: { scanId: string; rateLimitRemaining: number | null };
   try {
-    // anyApi is untyped; cast args to any to avoid generated-type dependency
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    result = await convex.mutation(anyApi.scans.createScan, {
+    const result = await convex.mutation("scans:createScan", {
       repoUrl,
       userId: convexUserId,
       ip: convexUserId ? undefined : ip,
-    } as any);
+    });
+
+    const remaining = result.rateLimitRemaining ?? limit;
+    return NextResponse.json(
+      { scanId: result.scanId },
+      {
+        headers: {
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": String(Math.max(0, remaining)),
+          "X-RateLimit-Reset": String(resetAt),
+        },
+      }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.startsWith("RATE_LIMIT_EXCEEDED")) {
@@ -87,16 +99,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-
-  const remaining = result.rateLimitRemaining ?? limit;
-  return NextResponse.json(
-    { scanId: result.scanId },
-    {
-      headers: {
-        "X-RateLimit-Limit": String(limit),
-        "X-RateLimit-Remaining": String(Math.max(0, remaining)),
-        "X-RateLimit-Reset": String(resetAt),
-      },
-    }
-  );
 }
