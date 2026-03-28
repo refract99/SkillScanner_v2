@@ -76,8 +76,10 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (err) {
+    console.error("[scan/create] Convex error:", err);
     const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("RATE_LIMIT_EXCEEDED")) {
+
+    if (message && message.startsWith("RATE_LIMIT_EXCEEDED")) {
       const upgradeMessage = convexUserId
         ? "You've reached your 20 scans/hour limit. Upgrade for unlimited scans."
         : "You've reached the 5 scans/hour limit for anonymous users. Sign up for more scans.";
@@ -94,7 +96,6 @@ export async function POST(request: NextRequest) {
         }
       );
     }
-    console.error("[scan/create] Convex error:", message);
     return NextResponse.json(
       { error: message || "Failed to create scan" },
       { status: 500 }
