@@ -261,7 +261,7 @@ export const seedDatabase = internalAction({
 // Public action — callable from the Next.js API route
 // ---------------------------------------------------------------------------
 
-export const triggerSeed = action({
+export const triggerSeed: any = action({
   args: { secret: v.string() },
   handler: async (ctx, { secret }) => {
     const expected = process.env.SEED_SECRET;
@@ -276,7 +276,7 @@ export const triggerSeed = action({
 // Status query — summary of seed progress
 // ---------------------------------------------------------------------------
 
-export const getSeedStatus = internalAction({
+export const getSeedStatus: any = internalAction({
   args: {},
   handler: async (ctx) => {
     const existingUrls = await ctx.runQuery(internal.seed.getExistingRepoUrls, {});

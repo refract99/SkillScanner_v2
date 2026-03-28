@@ -1,3 +1,4 @@
+import { api } from "../../../../../convex/_generated/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   let convexUserId: string | undefined;
   if (clerkUserId) {
     try {
-      const user = await convex.query("users:getByClerkId", {
+      const user = await convex.query(api.users.getByClerkId, {
         clerkId: clerkUserId,
       });
       convexUserId = user?._id;
@@ -57,9 +58,9 @@ export async function POST(request: NextRequest) {
   const resetAt = (hourBucket + 1) * 3600;
 
   try {
-    const result = await convex.mutation("scans:createScan", {
+    const result = await convex.mutation(api.scans.createScan, {
       repoUrl,
-      userId: convexUserId,
+      userId: convexUserId as any,
       ip: convexUserId ? undefined : ip,
     });
 

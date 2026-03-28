@@ -1,7 +1,7 @@
 "use client";
+import { api as _api } from "../../../convex/_generated/api"; const api: any = _api;
 
 import { useQuery } from "convex/react";
-import { anyApi } from "convex/server";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
@@ -434,9 +434,9 @@ function FindingCard({ finding }: { finding: Finding }) {
 // ---------------------------------------------------------------------------
 
 export function PublicReport({ scanId }: { scanId: string }) {
-  const scan = useQuery(anyApi.scans.getScan, { scanId }) as Scan | null | undefined;
-  const findings = useQuery(anyApi.scans.getFindings, { scanId }) as Finding[] | undefined;
-  const comparison = useQuery(anyApi.scans.getComparisonData, { scanId }) as ComparisonData | null | undefined;
+  const scan = useQuery(api.scans.getScan, { scanId }) as Scan | null | undefined;
+  const findings = useQuery(api.scans.getFindings, { scanId }) as Finding[] | undefined;
+  const comparison = useQuery(api.scans.getComparisonData, { scanId }) as ComparisonData | null | undefined;
 
   if (scan === undefined || findings === undefined) {
     return (

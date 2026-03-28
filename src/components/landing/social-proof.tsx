@@ -1,7 +1,8 @@
 "use client";
+import { api as _api } from "../../../convex/_generated/api"; const api: any = _api;
 
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// @ts-ignore
 
 function StatBox({ value, label }: { value: string; label: string }) {
   return (

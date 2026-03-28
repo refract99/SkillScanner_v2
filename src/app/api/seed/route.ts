@@ -1,3 +1,4 @@
+import { api as _api } from "../../../../convex/_generated/api"; const api: any = _api;
 /**
  * POST /api/seed
  *
@@ -14,7 +15,6 @@
 
 import { NextRequest } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
-import { anyApi } from "convex/server";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const convex = new ConvexHttpClient(convexUrl);
 
   try {
-    const result = await convex.action(anyApi.seed.triggerSeed, { secret });
+    const result = await convex.action(api.seed.triggerSeed, { secret });
     return Response.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

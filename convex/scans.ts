@@ -55,13 +55,13 @@ async function enforceRateLimit(
     )
     .unique();
 
-  const count = existing?.count ?? 0;
+  const count = Number(existing?.count ?? 0);
   if (count >= limit) {
     throw new Error(`RATE_LIMIT_EXCEEDED:${limit}:${key.split(":")[0]}`);
   }
 
   if (existing) {
-    await ctx.db.patch(existing._id, { count: count + 1 });
+    await ctx.db.patch(existing._id as any, { count: count + 1 });
   } else {
     await ctx.db.insert("rateLimits", { key, hourBucket, count: 1 });
   }

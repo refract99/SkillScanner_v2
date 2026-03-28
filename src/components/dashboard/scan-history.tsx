@@ -1,8 +1,8 @@
 "use client";
+import { api as _api } from "../../../convex/_generated/api"; const api: any = _api;
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { anyApi } from "convex/server";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
@@ -110,7 +110,7 @@ function ScanHistoryList({ convexUserId }: { convexUserId: string }) {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scans = useQuery(anyApi.scans.getUserScans, { userId: convexUserId as any }) as Scan[] | undefined;
+  const scans = useQuery(api.scans.getUserScans, { userId: convexUserId as any }) as Scan[] | undefined;
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -228,7 +228,7 @@ function ScanHistoryList({ convexUserId }: { convexUserId: string }) {
 // ---------------------------------------------------------------------------
 
 export function ScanHistory({ clerkId }: { clerkId: string }) {
-  const convexUser = useQuery(anyApi.users.getByClerkId, { clerkId }) as
+  const convexUser = useQuery(api.users.getByClerkId, { clerkId }) as
     | { _id: string }
     | null
     | undefined;

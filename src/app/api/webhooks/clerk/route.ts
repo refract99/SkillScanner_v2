@@ -1,7 +1,7 @@
+import { api as _api } from "../../../../../convex/_generated/api"; const api: any = _api;
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "standardwebhooks";
 import { ConvexHttpClient } from "convex/browser";
-import { anyApi } from "convex/server";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET ?? "";
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   const name = [first_name, last_name].filter(Boolean).join(" ") || undefined;
 
   const convex = new ConvexHttpClient(convexUrl);
-  await convex.mutation(anyApi.users.upsertUser, { clerkId, email: primaryEmail, name });
+  await convex.mutation(api.users.upsertUser, { clerkId, email: primaryEmail, name });
 
   return NextResponse.json({ ok: true });
 }

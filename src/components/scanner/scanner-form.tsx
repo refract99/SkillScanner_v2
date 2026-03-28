@@ -1,8 +1,8 @@
 "use client";
+import { api as _api } from "../../../convex/_generated/api"; const api: any = _api;
 
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "convex/react";
-import { anyApi } from "convex/server";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -460,8 +460,8 @@ function ScanResults({
 
 function ScanDisplay({ scanId }: { scanId: string }) {
   const { isSignedIn } = useAuth();
-  const scan = useQuery(anyApi.scans.getScan, { scanId }) as Scan | null | undefined;
-  const findings = useQuery(anyApi.scans.getFindings, { scanId }) as Finding[] | undefined;
+  const scan = useQuery(api.scans.getScan, { scanId }) as Scan | null | undefined;
+  const findings = useQuery(api.scans.getFindings, { scanId }) as Finding[] | undefined;
 
   if (scan === undefined || findings === undefined) {
     return (

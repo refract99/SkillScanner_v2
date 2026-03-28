@@ -1,8 +1,8 @@
 "use client";
+import { api as _api } from "../../../convex/_generated/api"; const api: any = _api;
 
 import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { anyApi } from "convex/server";
 import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -290,13 +290,13 @@ function FindingCard({ finding }: { finding: Finding }) {
 
 export function ScanReport({ scanId }: { scanId: string }) {
   const { userId: clerkId } = useAuth();
-  const scan = useQuery(anyApi.scans.getScan, { scanId }) as Scan | null | undefined;
-  const findings = useQuery(anyApi.scans.getFindings, { scanId }) as Finding[] | undefined;
+  const scan = useQuery(api.scans.getScan, { scanId }) as Scan | null | undefined;
+  const findings = useQuery(api.scans.getFindings, { scanId }) as Finding[] | undefined;
   const convexUser = useQuery(
-    anyApi.users.getByClerkId,
+    api.users.getByClerkId,
     clerkId ? { clerkId } : "skip"
   ) as { _id: string } | null | undefined;
-  const linkScanToUser = useMutation(anyApi.scans.linkScanToUser);
+  const linkScanToUser = useMutation(api.scans.linkScanToUser);
 
   // When authenticated user views a scan, link it to their account if not yet linked.
   useEffect(() => {
