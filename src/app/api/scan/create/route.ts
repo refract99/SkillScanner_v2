@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
         }
       );
     }
+    console.error("[scan/create] Convex error:", message);
     return NextResponse.json(
       { error: message || "Failed to create scan" },
       { status: 500 }
