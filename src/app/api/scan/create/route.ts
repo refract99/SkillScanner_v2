@@ -29,7 +29,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "repoUrl is required" }, { status: 400 });
   }
 
-  const { userId: clerkUserId } = await auth();
+  let clerkUserId: string | null = null;
+  try {
+    const authResult = await auth();
+    clerkUserId = authResult?.userId ?? null;
+  } catch {
+    // Clerk auth not available — treat as anonymous
+  }
   const ip = getClientIp(request);
   const convex = new ConvexHttpClient(convexUrl);
 
