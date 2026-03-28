@@ -57,11 +57,13 @@ export async function POST(request: NextRequest) {
   const resetAt = (hourBucket + 1) * 3600;
 
   try {
+    console.log("[scan/create] Calling Convex mutation, URL:", convexUrl);
     const result: any = await convex.mutation("scans:createScan" as any, {
       repoUrl,
       userId: convexUserId,
       ip: convexUserId ? undefined : ip,
     });
+    console.log("[scan/create] Convex result:", JSON.stringify(result));
 
     const remaining = result.rateLimitRemaining ?? limit;
     return NextResponse.json(
